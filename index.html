@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>虚拟主播歌曲列表</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 配置Tailwind -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#7C3AED', // 主色调：紫色
+            secondary: '#EC4899', // 辅助色：粉色
+            bilibili: '#FB7299', // B站粉色
+            dark: '#1E293B',
+            light: '#F8FAFC'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      .card-hover:hover {
+        transform: translateY(-5px);
+      }
+      .bg-blur {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+      .btn-bilibili {
+        @apply bg-bilibili hover:bg-bilibili/90 text-white transition-all duration-300 shadow-md hover:shadow-lg;
+      }
+      .file-upload-area {
+        @apply border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer bg-gray-50/50;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans relative">
+  <!-- 背景图片容器 -->
+  <div id="backgroundContainer" class="fixed inset-0 z-0">
+    <img id="pageBackground" src="https://picsum.photos/id/1048/1920/1080" alt="页面背景" 
+         class="w-full h-full object-cover opacity-20 transition-opacity duration-500">
+    <div class="absolute inset-0 bg-gradient-to-b from-purple-50/80 via-indigo-50/70 to-pink-50/80 transition-colors duration-500"></div>
+  </div>
+
+<!-- 顶部导航栏 -->
+<nav class="bg-white/80 bg-blur shadow-sm fixed w-full z-50 transition-all duration-300">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center">
+      <img id="navIcon" src="https://i.imgur.com/your-default-icon.png" alt="导航图标" class="w-10 h-10 rounded-full mr-2 object-cover">
+      <h1 class="text-2xl font-bold text-primary">
+        水饺的歌单
+      </h1>
+    </div>
+    <div class="flex gap-3">
+      <button id="toggleBackend" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-full shadow transition-all flex items-center">
+        <i class="fa fa-tachometer mr-2"></i>后台管理
+      </button>
+    </div>
+  </div>
+</nav>
+
+  <!-- 主内容区 -->
+  <main class="container mx-auto px-4 pt-24 pb-16 relative z-10">
+    <!-- 主播头像区域 -->
+    <div class="flex flex-col items-center mb-12">
+      <div class="relative mb-6">
+        <div class="w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-primary/20 shadow-lg bg-white/50">
+          <img id="avatar" src="https://i0.hdslb.com/bfs/face/member/noface.jpg" alt="虚拟主播头像" 
+               class="w-full h-full object-cover transition-transform duration-700 hover:scale-110">
+        </div>
+      </div>
+      
+      <!-- B站链接按钮 -->
+      <div class="flex flex-wrap justify-center gap-4 w-full max-w-md">
+        <a id="bilibiliHomeLink" href="https://space.bilibili.com" target="_blank" 
+           class="btn-bilibili flex-1 min-w-[160px] px-6 py-3 rounded-full flex items-center justify-center">
+          <i class="fa fa-user-circle mr-2"></i>
+          <span>哔哩哔哩主页</span>
+        </a>
+        <a id="bilibiliLiveLink" href="https://live.bilibili.com" target="_blank" 
+           class="btn-bilibili flex-1 min-w-[160px] px-6 py-3 rounded-full flex items-center justify-center">
+          <i class="fa fa-play-circle mr-2"></i>
+          <span>直播间</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 歌曲搜索和筛选 -->
+    <div class="mb-8 bg-white/90 bg-blur rounded-xl shadow-md p-4 md:p-6">
+      <div class="flex flex-col md:flex-row gap-4">
+        <div class="flex-1 relative">
+          <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="text" id="searchInput" placeholder="搜索歌曲或歌手..." 
+                 class="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+        </div>
+        <div class="flex gap-4 flex-wrap">
+          <select id="filterGenre" class="px-4 py-3 rounded-lg border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+            <option value="">所有曲风</option>
+            <option value="流行">流行</option>
+            <option value="摇滚">摇滚</option>
+            <option value="古风">古风</option>
+            <option value="电子">电子</option>
+            <option value="爵士">爵士</option>
+            <option value="民谣">民谣</option>
+          </select>
+          <select id="filterLanguage" class="px-4 py-3 rounded-lg border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+            <option value="">所有语言</option>
+            <option value="中文">中文</option>
+            <option value="日语">日语</option>
+            <option value="英语">英语</option>
+            <option value="韩语">韩语</option>
+            <option value="其他">其他</option>
+          </select>
+          <select id="filterPaid" class="px-4 py-3 rounded-lg border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+            <option value="">所有类型</option>
+            <option value="免费">免费</option>
+            <option value="付费">付费</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 歌曲列表 -->
+    <div class="bg-white/90 bg-blur rounded-xl shadow-md overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr class="bg-gray-50/70 border-b border-gray-200">
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">序号</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">歌名</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">歌手</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">语言</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">曲风</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">付费</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">歌切</th>
+              <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">备注</th>
+            </tr>
+          </thead>
+          <tbody id="songList">
+            <!-- 歌曲数据将通过JavaScript动态填充 -->
+          </tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="py-20 text-center hidden">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-4">
+          <i class="fa fa-music text-2xl text-primary"></i>
+        </div>
+        <h3 class="text-xl font-medium text-gray-900 mb-2">暂无歌曲数据</h3>
+      </div>
+    </div>
+  </main>
+
+  <!-- 登录模态框（新增） -->
+  <div id="loginModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">后台管理登录</h2>
+      
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label for="loginUsername" class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+          <input type="text" id="loginUsername" required
+                 class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                 value="admin">
+        </div>
+        
+        <div>
+          <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+          <input type="password" id="loginPassword" required
+                 class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                 value="admin123">
+        </div>
+        
+        <div class="pt-2">
+          <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow transition-all">
+            登录
+          </button>
+        </div>
+      </form>
+      
+      <div class="mt-4 text-center">
+        <button id="resetLogin" class="text-sm text-gray-500 hover:text-primary transition-colors">
+          重置登录信息
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 后台管理模态框（新增登出按钮） -->
+  <div id="backendModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gray-900">后台管理</h2>
+        <div class="flex items-center gap-4">
+          <span id="loginStatus" class="text-sm text-gray-500">管理员已登录</span>
+          <button id="logoutBtn" class="text-gray-500 hover:text-gray-700 transition-colors">
+            <i class="fa fa-sign-out text-xl"></i>
+          </button>
+          <button id="closeBackend" class="text-gray-500 hover:text-gray-700 transition-colors">
+            <i class="fa fa-times text-xl"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <!-- 后台管理标签页导航 -->
+        <div class="border-b border-gray-200 mb-6">
+          <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="backendTabs" role="tablist">
+            <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 border-primary text-primary rounded-t-lg" id="icon-tab" data-tabs-target="#icon-settings" type="button" role="tab" aria-selected="true">
+                <i class="fa fa-image mr-1"></i>图标设置
+              </button>
+            </li>
+            <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg" id="avatar-tab" data-tabs-target="#avatar-settings" type="button" role="tab" aria-selected="false">
+                <i class="fa fa-user-circle mr-1"></i>头像设置
+              </button>
+            </li>
+            <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg" id="links-tab" data-tabs-target="#links-settings" type="button" role="tab" aria-selected="false">
+                <i class="fa fa-link mr-1"></i>链接设置
+              </button>
+            </li>
+            <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg" id="background-tab" data-tabs-target="#background-settings" type="button" role="tab" aria-selected="false">
+                <i class="fa fa-image mr-1"></i>背景设置
+              </button>
+            </li>
+            <li class="mr-2" role="presentation">
+              <button class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg" id="songs-tab" data-tabs-target="#song-management" type="button" role="tab" aria-selected="false">
+                <i class="fa fa-music mr-1"></i>歌曲管理
+              </button>
+            </li>
+            <li role="presentation">
+              <button class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg" id="system-tab" data-tabs-target="#system-info" type="button" role="tab" aria-selected="false">
+                <i class="fa fa-info-circle mr-1"></i>系统信息
+              </button>
+            </li>
+          </ul>
+        </div>
+        
+        <!-- 图标设置部分 -->
+        <div class="backend-tab-content" id="icon-settings">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">设置导航图标</h3>
+          <form id="iconForm" class="space-y-4">
+            <div class="flex justify-center mb-4">
+              <div class="w-20 h-20 rounded-full overflow-hidden border-4 border-primary/20 shadow-md">
+                <img id="previewIcon" src="https://i.imgur.com/your-default-icon.png" alt="预览图标" 
+                     class="w-full h-full object-cover">
+              </div>
+            </div>
+            
+            <div>
+              <label for="iconUrl" class="block text-sm font-medium text-gray-700 mb-1">图标URL</label>
+              <input type="url" id="iconUrl" placeholder="输入图标链接..." 
+                     class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">或本地上传</label>
+              <div class="file-upload-area" id="iconUploadArea">
+                <input type="file" id="iconFileUpload" accept="image/*" class="hidden">
+                <div class="space-y-2">
+                  <i class="fa fa-cloud-upload text-2xl text-gray-400"></i>
+                  <p class="text-sm text-gray-600">点击上传图标图片</p>
+                  <p class="text-xs text-gray-500">支持JPG、PNG格式，建议尺寸100x100像素</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="pt-2">
+              <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow transition-all">
+                保存图标
+              </button>
+              <button type="button" id="resetIcon" class="ml-3 bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-lg shadow transition-all">
+                恢复默认
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- 头像设置部分 -->
+        <div class="backend-tab-content hidden" id="avatar-settings">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">设置头像</h3>
+          <form id="avatarForm" class="space-y-4">
+            <div class="flex justify-center mb-4">
+              <div class="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/20 shadow-md">
+                <img id="previewAvatar" src="https://i0.hdslb.com/bfs/face/member/noface.jpg" alt="预览头像" 
+                     class="w-full h-full object-cover">
+              </div>
+            </div>
+            
+            <div>
+              <label for="avatarUrl" class="block text-sm font-medium text-gray-700 mb-1">头像URL</label>
+              <input type="url" id="avatarUrl" placeholder="输入您的头像链接..." 
+                     class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">或本地上传</label>
+              <div class="file-upload-area" id="avatarUploadArea">
+                <input type="file" id="avatarFileUpload" accept="image/*" class="hidden">
+                <div class="space-y-2">
+                  <i class="fa fa-cloud-upload text-2xl text-gray-400"></i>
+                  <p class="text-sm text-gray-600">点击上传头像图片</p>
+                  <p class="text-xs text-gray-500">支持JPG、PNG格式，建议尺寸500x500像素</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="pt-2">
+              <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow transition-all">
+                保存头像
+              </button>
+              <button type="button" id="resetAvatar" class="ml-3 bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-lg shadow transition-all">
+                恢复默认
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- 链接设置部分 -->
+        <div class="backend-tab-content hidden" id="links-settings">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">社交媒体链接设置</h3>
+          <form id="linksForm" class="space-y-6">
+            <!-- B站个人主页链接 -->
+            <div>
+              <label for="bilibiliHomeUrl" class="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <i class="fa fa-user-circle text-bilibili mr-2"></i>
+                哔哩哔哩个人主页URL
+              </label>
+              <input type="url" id="bilibiliHomeUrl" placeholder="例如：https://space.bilibili.com/123456" 
+                     class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-bilibili focus:ring-2 focus:ring-bilibili/20 outline-none transition-all">
+              <p class="mt-1 text-xs text-gray-500">用户点击"哔哩哔哩主页"按钮时将跳转到此链接</p>
+            </div>
+            
+            <!-- B站直播间链接 -->
+            <div>
+              <label for="bilibiliLiveUrl" class="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                <i class="fa fa-play-circle text-bilibili mr-2"></i>
+                哔哩哔哩直播间URL
+              </label>
+              <input type="url" id="bilibiliLiveUrl" placeholder="例如：https://live.bilibili.com/123456" 
+                     class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-bilibili focus:ring-2 focus:ring-bilibili/20 outline-none transition-all">
+              <p class="mt-1 text-xs text-gray-500">用户点击"直播间"按钮时将跳转到此链接</p>
+            </div>
+            
+            <!-- 保存按钮 -->
+            <div class="pt-2">
+              <button type="submit" class="bg-bilibili hover:bg-bilibili/90 text-white px-6 py-3 rounded-lg shadow transition-all">
+                保存链接设置
+              </button>
+              <button type="button" id="resetLinks" class="ml-3 bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-lg shadow transition-all">
+                恢复默认链接
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- 背景设置部分 -->
+        <div class="backend-tab-content hidden" id="background-settings">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">设置页面背景</h3>
+          <form id="backgroundForm" class="space-y-6">
+            <!-- 背景预览 -->
+            <div class="flex justify-center mb-4">
+              <div class="w-full max-w-md h-48 rounded-xl overflow-hidden border-4 border-primary/20 shadow-md relative">
+                <img id="previewBackground" src="https://picsum.photos/id/1048/1920/1080" alt="预览背景" 
+                     class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-b from-purple-50/50 via-indigo-50/40 to-pink-50/50"></div>
+              </div>
+            </div>
+            
+            <!-- 背景URL输入 -->
+            <div>
+              <label for="backgroundUrl" class="block text-sm font-medium text-gray-700 mb-1">通过URL设置背景图片</label>
+              <input type="url" id="backgroundUrl" placeholder="输入背景图片链接（建议1920x1080像素）..." 
+                     class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+              <p class="mt-1 text-xs text-gray-500">支持JPG、PNG格式，推荐使用高分辨率图片以保证显示效果</p>
+            </div>
+            
+            <!-- 新增：本地上传背景 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">或本地上传背景图片</label>
+              <div class="file-upload-area" id="backgroundUploadArea">
+                <input type="file" id="backgroundFileUpload" accept="image/*" class="hidden">
+                <div class="space-y-2">
+                  <i class="fa fa-cloud-upload text-2xl text-gray-400"></i>
+                  <p class="text-sm text-gray-600">点击上传背景图片</p>
+                  <p class="text-xs text-gray-500">支持JPG、PNG格式，建议尺寸1920x1080像素，文件大小不超过5MB</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 背景透明度调节 -->
+            <div>
+              <label for="backgroundOpacity" class="block text-sm font-medium text-gray-700 mb-1">
+                背景透明度 (当前: <span id="opacityValue">20</span>%)
+              </label>
+              <input type="range" id="backgroundOpacity" min="10" max="50" step="5" value="20"
+                     class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+              <p class="mt-1 text-xs text-gray-500">透明度越低，背景越淡，不影响前景内容可读性</p>
+            </div>
+            
+            <!-- 保存与恢复按钮 -->
+            <div class="pt-2 flex flex-wrap gap-3">
+              <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow transition-all">
+                保存背景设置
+              </button>
+              <button type="button" id="resetBackground" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-lg shadow transition-all">
+                恢复默认背景
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- 歌曲管理部分 -->
+        <div class="backend-tab-content hidden" id="song-management">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">添加新歌曲</h3>
+          
+          <form id="addSongForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="songName" class="block text-sm font-medium text-gray-700 mb-1">歌名 <span class="text-red-500">*</span></label>
+                <input type="text" id="songName" required 
+                       class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+              </div>
+              
+              <div>
+                <label for="songSinger" class="block text-sm font-medium text-gray-700 mb-1">歌手 <span class="text-red-500">*</span></label>
+                <input type="text" id="songSinger" required 
+                       class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+              </div>
+              
+              <div>
+                <label for="songLanguage" class="block text-sm font-medium text-gray-700 mb-1">语言 <span class="text-red-500">*</span></label>
+                <select id="songLanguage" required 
+                        class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+                  <option value="">请选择语言</option>
+                  <option value="中文">中文</option>
+                  <option value="日语">日语</option>
+                  <option value="英语">英语</option>
+                  <option value="韩语">韩语</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="songGenre" class="block text-sm font-medium text-gray-700 mb-1">曲风 <span class="text-red-500">*</span></label>
+                <select id="songGenre" required 
+                        class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+                  <option value="">请选择曲风</option>
+                  <option value="流行">流行</option>
+                  <option value="摇滚">摇滚</option>
+                  <option value="古风">古风</option>
+                  <option value="电子">电子</option>
+                  <option value="爵士">爵士</option>
+                  <option value="民谣">民谣</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="songPaid" class="block text-sm font-medium text-gray-700 mb-1">付费类型 <span class="text-red-500">*</span></label>
+                <select id="songPaid" required 
+                        class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+                  <option value="免费">免费</option>
+                  <option value="付费">付费</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="songLink" class="block text-sm font-medium text-gray-700 mb-1">歌切链接</label>
+                <input type="url" id="songLink" placeholder="https://..." 
+                       class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all">
+              </div>
+            </div>
+            
+            <div>
+              <label for="songRemark" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+              <textarea id="songRemark" rows="3" placeholder="例如：难度、演唱次数等信息..." 
+                        class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"></textarea>
+            </div>
+            
+            <div class="pt-2">
+              <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow transition-all flex items-center">
+                <i class="fa fa-plus mr-2"></i>添加歌曲
+              </button>
+            </div>
+          </form>
+          
+          <hr class="my-8 border-gray-200">
+          
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">已添加歌曲</h3>
+          <div id="adminSongList" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+            <!-- 管理面板中的歌曲列表将通过JavaScript动态填充 -->
+          </div>
+          
+          <div class="mt-6 flex justify-between border-t border-gray-100 pt-6">
+            <button id="importSongs" class="text-primary hover:text-primary/80 transition-colors flex items-center">
+              <i class="fa fa-upload mr-2"></i>导入歌曲
+            </button>
+            <button id="exportSongs" class="text-primary hover:text-primary/80 transition-colors flex items-center">
+              <i class="fa fa-download mr-2"></i>导出歌曲
+            </button>
+            <button id="clearSongs" class="text-red-500 hover:text-red-600 transition-colors flex items-center">
+              <i class="fa fa-trash mr-2"></i>清空列表
+            </button>
+          </div>
+        </div>
+        
+        <!-- 系统信息部分 -->
+        <div class="backend-tab-content hidden" id="system-info">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">系统信息</h3>
+          <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-sm text-gray-600">数据存储在本地浏览器中</p>
+            <p class="text-sm text-gray-600 mt-2">当前歌曲总数: <span id="songCount">0</span></p>
+            <p class="text-sm text-gray-600 mt-1">是否使用自定义背景: <span id="customBackgroundStatus">否</span></p>
+            <p class="text-sm text-gray-600 mt-1">是否设置自定义链接: <span id="customLinksStatus">否</span></p>
+            <p class="text-sm text-gray-600 mt-1">是否设置自定义图标: <span id="customIconStatus">否</span></p>
+            <p class="text-sm text-gray-600 mt-1">登录状态: <span id="systemLoginStatus">未登录</span></p>
+          </div>
+          
+          <div class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">使用帮助</h3>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <ul class="text-sm text-gray-600 space-y-2">
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>通过"图标设置"可以更改导航栏图标</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>通过"头像设置"可以更改主播显示头像，支持URL和本地上传</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>通过"链接设置"可以配置B站主页和直播间地址</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>通过"背景设置"可以自定义页面背景，支持URL和本地上传图片</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>在"歌曲管理"中可以添加、删除和导入导出歌曲列表</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>所有数据保存在本地，清除浏览器数据会导致信息丢失</span>
+                </li>
+                <li class="flex items-start">
+                  <i class="fa fa-info-circle text-primary mt-1 mr-2"></i>
+                  <span>默认管理员账户：admin，密码：admin123，建议登录后重置</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知提示 -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-dark text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50">
+    <i id="toastIcon" class="fa fa-check-circle mr-2"></i>
+    <span id="toastMessage"></span>
+  </div>
+
+  <script>
+    // 1. 新增：登录管理模块（核心）
+    const LoginManager = {
+      // 初始化管理员账户（首次使用时设置默认账户）
+      initAdmin() {
+        const admin = localStorage.getItem('adminCredentials');
+        if (!admin) {
+          // 默认账户：admin，密码：admin123（base64简单加密，实际项目建议用bcrypt）
+          this.setAdmin('admin', 'admin123');
+        }
+      },
+      
+      // 设置/修改管理员账户
+      setAdmin(username, password) {
+        const hashPassword = btoa(password); // 简单加密（base64）
+        localStorage.setItem('adminCredentials', JSON.stringify({
+          username,
+          password: hashPassword
+        }));
+      },
+      
+      // 验证登录信息
+      verifyLogin(username, password) {
+        const admin = JSON.parse(localStorage.getItem('adminCredentials') || '{}');
+        return username === admin.username && btoa(password) === admin.password;
+      },
+      
+      // 检查是否已登录
+      isLoggedIn() {
+        return localStorage.getItem('adminLoggedIn') === 'true';
+      },
+      
+      // 执行登录
+      login() {
+        localStorage.setItem('adminLoggedIn', 'true');
+        this.updateLoginStatus();
+      },
+      
+      // 执行登出
+      logout() {
+        localStorage.removeItem('adminLoggedIn');
+        this.updateLoginStatus();
+        // 登出后隐藏后台面板，显示登录框
+        document.getElementById('backendModal').classList.add('hidden');
+        document.getElementById('loginModal').classList.remove('hidden');
+        UIManager.showToast('已成功登出');
+      },
+      
+      // 更新页面登录状态显示
+      updateLoginStatus() {
+        const isLoggedIn = this.isLoggedIn();
+        const loginStatus = document.getElementById('loginStatus');
+        const systemLoginStatus = document.getElementById('systemLoginStatus');
+        
+        if (isLoggedIn) {
+          loginStatus.textContent = '管理员已登录';
+          systemLoginStatus.textContent = '已登录';
+          systemLoginStatus.className = 'text-green-500';
+        } else {
+          loginStatus.textContent = '未登录';
+          systemLoginStatus.textContent = '未登录';
+          systemLoginStatus.className = 'text-red-500';
+        }
+      }
+    };
+
+    // 2. 数据存储与管理
+    const SongManager = {
+      getSongs() {
+        const songs = localStorage.getItem('virtualSingerSongs');
+        return songs ? JSON.parse(songs) : [];
+      },
+      
+      saveSongs(songs) {
+        localStorage.setItem('virtualSingerSongs', JSON.stringify(songs));
+      },
+      
+      addSong(song) {
+        const songs = this.getSongs();
+        song.id = Date.now().toString();
+        songs.push(song);
+        this.saveSongs(songs);
+        return song;
+      },
+      
+      deleteSong(id) {
+        let songs = this.getSongs();
+        songs = songs.filter(song => song.id !== id);
+        this.saveSongs(songs);
+        return songs;
+      },
+      
+      exportSongs() {
+        const songs = this.getSongs();
+        const dataStr = JSON.stringify(songs, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = '虚拟主播歌曲列表.json';
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+      },
+      
+      importSongs(jsonData) {
+        try {
+          const songs = JSON.parse(jsonData);
+          if (Array.isArray(songs)) {
+            const processedSongs = songs.map(song => {
+              if (!song.id) {
+                song.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+              }
+              return song;
+            });
+            this.saveSongs(processedSongs);
+            return true;
+          }
+          return false;
+        } catch (e) {
+          console.error('导入失败:', e);
+          return false;
+        }
+      },
+      
+      clearAllSongs() {
+        localStorage.removeItem('virtualSingerSongs');
+      }
+    };
+
+    // 3. 图标管理
+    const IconManager = {
+      defaultIcon: 'https://i.imgur.com/your-default-icon.png',
+      
+      getIcon() {
+        return localStorage.getItem('virtualSingerIcon') || this.defaultIcon;
+      },
+      
+      saveIcon(url) {
+        localStorage.setItem('virtualSingerIcon', url);
+        document.getElementById('navIcon').src = url;
+        document.getElementById('previewIcon').src = url;
+      },
+      
+      resetIcon() {
+        localStorage.removeItem('virtualSingerIcon');
+        document.getElementById('navIcon').src = this.defaultIcon;
+        document.getElementById('previewIcon').src = this.defaultIcon;
+      },
+      
+      handleFileUpload(file) {
+        if (!file.type.match('image.*')) {
+          UIManager.showToast('请上传图片文件', 'fa-exclamation-circle');
+          return false;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+          UIManager.showToast('文件大小不能超过5MB', 'fa-exclamation-circle');
+          return false;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.saveIcon(e.target.result);
+          UIManager.showToast('图标上传成功');
+        };
+        reader.readAsDataURL(file);
+        return true;
+      }
+    };
+
+    // 4. 头像管理
+    const AvatarManager = {
+      defaultAvatar: 'https://i0.hdslb.com/bfs/face/member/noface.jpg',
+      
+      getAvatar() {
+        return localStorage.getItem('virtualSingerAvatar') || this.defaultAvatar;
+      },
+      
+      saveAvatar(url) {
+        localStorage.setItem('virtualSingerAvatar', url);
+        document.getElementById('avatar').src = url;
+        document.getElementById('previewAvatar').src = url;
+      },
+      
+      resetAvatar() {
+        localStorage.removeItem('virtualSingerAvatar');
+        document.getElementById('avatar').src = this.defaultAvatar;
+        document.getElementById('previewAvatar').src = this.defaultAvatar;
+      },
+      
+      handleFileUpload(file) {
+        if (!file.type.match('image.*')) {
+          UIManager.showToast('请上传图片文件', 'fa-exclamation-circle');
+          return false;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+          UIManager.showToast('文件大小不能超过5MB', 'fa-exclamation-circle');
+          return false;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.saveAvatar(e.target.result);
+          UIManager.showToast('头像上传成功');
+        };
+        reader.readAsDataURL(file);
+        return true;
+      }
+    };
+
+    // 5. 链接管理
+    const LinkManager = {
+      defaultLinks: {
+        bilibiliHome: 'https://space.bilibili.com',
+        bilibiliLive: 'https://live.bilibili.com'
+      },
+      
+      getLinks() {
+        const links = localStorage.getItem('virtualSingerLinks');
+        return links ? JSON.parse(links) : this.defaultLinks;
+      },
+      
+      saveLinks(links) {
+        localStorage.setItem('virtualSingerLinks', JSON.stringify(links));
+        this.applyLinks(links);
+      },
+      
+      applyLinks(links) {
+        document.getElementById('bilibiliHomeLink').href = links.bilibiliHome;
+        document.getElementById('bilibiliLiveLink').href = links.bilibiliLive;
+        
+        document.getElementById('bilibiliHomeUrl').value = links.bilibiliHome;
+        document.getElementById('bilibiliLiveUrl').value = links.bilibiliLive;
+        
+        const isCustom = links.bilibiliHome !== this.defaultLinks.bilibiliHome || 
+                         links.bilibiliLive !== this.defaultLinks.bilibiliLive;
+        document.getElementById('customLinksStatus').textContent = isCustom ? '是' : '否';
+      },
+      
+      resetLinks() {
+        localStorage.removeItem('virtualSingerLinks');
+        this.applyLinks(this.defaultLinks);
+      }
+    };
+
+    // 6. 背景管理
+    const BackgroundManager = {
+      defaultBackground: 'https://picsum.photos/id/1048/1920/1080',
+      defaultOpacity: 20,
+      
+      getBackgroundSettings() {
+        const settings = localStorage.getItem('virtualSingerBackground');
+        if (settings) {
+          return JSON.parse(settings);
+        }
+        return {
+          url: this.defaultBackground,
+          opacity: this.defaultOpacity
+        };
+      },
+      
+      saveBackgroundSettings(settings) {
+        localStorage.setItem('virtualSingerBackground', JSON.stringify(settings));
+        this.applyBackground(settings);
+      },
+      
+      applyBackground(settings) {
+        const backgroundImg = document.getElementById('pageBackground');
+        const previewImg = document.getElementById('previewBackground');
+        
+        backgroundImg.src = settings.url;
+        previewImg.src = settings.url;
+        
+        backgroundImg.style.opacity = settings.opacity / 100;
+        previewImg.style.opacity = settings.opacity / 100;
+        
+        document.getElementById('backgroundOpacity').value = settings.opacity;
+        document.getElementById('opacityValue').textContent = settings.opacity;
+        
+        document.getElementById('backgroundUrl').value = settings.url;
+        
+        const isCustom = settings.url !== this.defaultBackground || settings.opacity !== this.defaultOpacity;
+        document.getElementById('customBackgroundStatus').textContent = isCustom ? '是' : '否';
+      },
+      
+      resetBackground() {
+        const defaultSettings = {
+          url: this.defaultBackground,
+          opacity: this.defaultOpacity
+        };
+        localStorage.removeItem('virtualSingerBackground');
+        this.applyBackground(defaultSettings);
+      },
+      
+      handleFileUpload(file) {
+        if (!file.type.match('image.*')) {
+          UIManager.showToast('请上传图片文件', 'fa-exclamation-circle');
+          return false;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+          UIManager.showToast('文件大小不能超过5MB', 'fa-exclamation-circle');
+          return false;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const currentOpacity = parseInt(document.getElementById('backgroundOpacity').value);
+          const settings = {
+            url: e.target.result,
+            opacity: currentOpacity
+          };
+          this.saveBackgroundSettings(settings);
+          UIManager.showToast('背景图片上传成功');
+        };
+        reader.readAsDataURL(file);
+        return true;
+      }
+    };
+
+    // 7. UI管理器
+    const UIManager = {
+      showToast(message, icon = 'fa-check-circle') {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+        
+        toastMessage.textContent = message;
+        toastIcon.className = `fa ${icon} mr-2`;
+        
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+        
+        setTimeout(() => {
+          toast.classList.remove('translate-y-0', 'opacity-100');
+          toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3000);
+      },
+      
+      renderSongList(filteredSongs = null) {
+        const songs = filteredSongs || SongManager.getSongs();
+        const songListElement = document.getElementById('songList');
+        const emptyStateElement = document.getElementById('emptyState');
+        const songCountElement = document.getElementById('songCount');
+        
+        songCountElement.textContent = songs.length;
+        songListElement.innerHTML = '';
+        
+        if (songs.length === 0) {
+          emptyStateElement.classList.remove('hidden');
+          return;
+        }
+        
+        emptyStateElement.classList.add('hidden');
+        
+        songs.forEach((song, index) => {
+          const row = document.createElement('tr');
+          row.className = 'border-b border-gray-100 hover:bg-gray-50/50 transition-colors';
+          
+          const paidBadgeClass = song.paid === '付费' 
+            ? 'bg-red-100 text-red-800' 
+            : 'bg-green-100 text-green-800';
+          
+          row.innerHTML = `
+            <td class="px-6 py-4 text-sm text-gray-500">${index + 1}</td>
+            <td class="px-6 py-4">
+              <div class="font-medium text-gray-900">${song.name}</div>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-700">${song.singer}</td>
+            <td class="px-6 py-4 text-sm text-gray-700">${song.language}</td>
+            <td class="px-6 py-4 text-sm text-gray-700">${song.genre}</td>
+            <td class="px-6 py-4">
+              <span class="px-2 py-1 text-xs rounded-full ${paidBadgeClass}">${song.paid}</span>
+            </td>
+            <td class="px-6 py-4 text-sm">
+              ${song.link 
+                ? `<a href="${song.link}" target="_blank" class="text-primary hover:text-primary/80 flex items-center">
+                     <i class="fa fa-external-link mr-1"></i> 查看
+                   </a>` 
+                : '<span class="text-gray-400">未添加</span>'}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-700">${song.remark || '-'}</td>
+          `;
+          
+          songListElement.appendChild(row);
+        });
+      },
+      
+      renderAdminSongList() {
+        const songs = SongManager.getSongs();
+        const adminListElement = document.getElementById('adminSongList');
+        
+        adminListElement.innerHTML = '';
+        
+        if (songs.length === 0) {
+          adminListElement.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i class="fa fa-music text-2xl mb-2 block"></i>
+              暂无歌曲，请添加
+            </div>
+          `;
+          return;
+        }
+        
+        songs.forEach(song => {
+          const item = document.createElement('div');
+          item.className = 'bg-gray-50 rounded-lg p-3 flex justify-between items-center';
+          
+          item.innerHTML = `
+            <div>
+              <div class="font-medium">${song.name}</div>
+              <div class="text-sm text-gray-500">${song.singer} · ${song.genre}</div>
+            </div>
+            <button class="delete-song text-red-500 hover:text-red-700 transition-colors" data-id="${song.id}">
+              <i class="fa fa-trash"></i>
+            </button>
+          `;
+          
+          adminListElement.appendChild(item);
+        });
+        
+        document.querySelectorAll('.delete-song').forEach(button => {
+          button.addEventListener('click', (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            SongManager.deleteSong(id);
+            this.renderSongList();
+            this.renderAdminSongList();
+            this.showToast('歌曲已删除', 'fa-trash');
+          });
+        });
+      },
+      
+      filterSongs() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const genreFilter = document.getElementById('filterGenre').value;
+        const languageFilter = document.getElementById('filterLanguage').value;
+        const paidFilter = document.getElementById('filterPaid').value;
+        
+        let songs = SongManager.getSongs();
+        
+        const filteredSongs = songs.filter(song => {
+          const matchesSearch = song.name.toLowerCase().includes(searchTerm) || 
+                               song.singer.toLowerCase().includes(searchTerm);
+          const matchesGenre = !genreFilter || song.genre === genreFilter;
+          const matchesLanguage = !languageFilter || song.language === languageFilter;
+          const matchesPaid = !paidFilter || song.paid === paidFilter;
+          
+          return matchesSearch && matchesGenre && matchesLanguage && matchesPaid;
+        });
+        
+        this.renderSongList(filteredSongs);
+      },
+      
+      initTabs() {
+        const tabs = document.querySelectorAll('#backendTabs button');
+        
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabs.forEach(t => {
+              t.classList.remove('border-primary', 'text-primary');
+              t.classList.add('border-transparent', 'text-gray-500');
+              t.setAttribute('aria-selected', 'false');
+            });
+            
+            document.querySelectorAll('.backend-tab-content').forEach(content => {
+              content.classList.add('hidden');
+            });
+            
+            tab.classList.remove('border-transparent', 'text-gray-500');
+            tab.classList.add('border-primary', 'text-primary');
+            tab.setAttribute('aria-selected', 'true');
+            
+            const target = tab.getAttribute('data-tabs-target');
+            document.querySelector(target).classList.remove('hidden');
+          });
+        });
+      },
+      
+      // 新增：初始化登录相关事件
+      initLoginEvents() {
+        // 点击"后台管理"按钮：已登录则直接进入，未登录则显示登录框
+        document.getElementById('toggleBackend').addEventListener('click', () => {
+          if (LoginManager.isLoggedIn()) {
+            document.getElementById('backendModal').classList.remove('hidden');
+            this.renderAdminSongList();
+          } else {
+            document.getElementById('loginModal').classList.remove('hidden');
+          }
+        });
+        
+        // 登录表单提交
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const username = document.getElementById('loginUsername').value.trim();
+          const password = document.getElementById('loginPassword').value.trim();
+          
+          if (LoginManager.verifyLogin(username, password)) {
+            LoginManager.login();
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('backendModal').classList.remove('hidden');
+            this.renderAdminSongList();
+            this.showToast('登录成功');
+            
+            // 清空登录表单
+            document.getElementById('loginForm').reset();
+          } else {
+            this.showToast('用户名或密码错误', 'fa-exclamation-circle');
+          }
+        });
+        
+        // 重置登录信息（恢复默认账户）
+        document.getElementById('resetLogin').addEventListener('click', () => {
+          if (confirm('确定要重置管理员账户吗？将恢复为默认账户：admin/admin123')) {
+            LoginManager.setAdmin('admin', 'admin123');
+            this.showToast('登录信息已重置，默认账户：admin，密码：admin123');
+            document.getElementById('loginUsername').value = 'admin';
+            document.getElementById('loginPassword').value = 'admin123';
+          }
+        });
+        
+        // 登出按钮点击
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+          LoginManager.logout();
+        });
+        
+        // 关闭登录框
+        document.getElementById('loginModal').addEventListener('click', (e) => {
+          if (e.target === document.getElementById('loginModal')) {
+            document.getElementById('loginModal').classList.add('hidden');
+          }
+        });
+      },
+      
+      initUploadAreas() {
+        // 图标上传
+        const iconUploadArea = document.getElementById('iconUploadArea');
+        const iconFileInput = document.getElementById('iconFileUpload');
+        
+        iconUploadArea.addEventListener('click', () => {
+          iconFileInput.click();
+        });
+        
+        iconFileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            IconManager.handleFileUpload(e.target.files[0]);
+            e.target.value = '';
+            
+            const isCustomIcon = IconManager.getIcon() !== IconManager.defaultIcon;
+            document.getElementById('customIconStatus').textContent = isCustomIcon ? '是' : '否';
+          }
+        });
+        
+        // 头像上传
+        const avatarUploadArea = document.getElementById('avatarUploadArea');
+        const avatarFileInput = document.getElementById('avatarFileUpload');
+        
+        avatarUploadArea.addEventListener('click', () => {
+          avatarFileInput.click();
+        });
+        
+        avatarFileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            AvatarManager.handleFileUpload(e.target.files[0]);
+            e.target.value = '';
+          }
+        });
+        
+        // 背景上传
+        const backgroundUploadArea = document.getElementById('backgroundUploadArea');
+        const backgroundFileInput = document.getElementById('backgroundFileUpload');
+        
+        backgroundUploadArea.addEventListener('click', () => {
+          backgroundFileInput.click();
+        });
+        
+        backgroundFileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            BackgroundManager.handleFileUpload(e.target.files[0]);
+            e.target.value = '';
+          }
+        });
+        
+        // 歌曲导入
+        const importSongsBtn = document.getElementById('importSongs');
+        const importInput = document.createElement('input');
+        importInput.type = 'file';
+        importInput.accept = '.json';
+        importInput.style.display = 'none';
+        document.body.appendChild(importInput);
+        
+        importSongsBtn.addEventListener('click', () => {
+          importInput.click();
+        });
+        
+        importInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              if (SongManager.importSongs(event.target.result)) {
+                this.renderSongList();
+                this.renderAdminSongList();
+                this.showToast('歌曲导入成功');
+              } else {
+                this.showToast('导入失败，请检查文件格式', 'fa-exclamation-circle');
+              }
+            };
+            reader.readAsText(e.target.files[0]);
+          }
+        });
+      },
+      
+      initForms() {
+        // 图标表单提交
+        document.getElementById('iconForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const iconUrl = document.getElementById('iconUrl').value.trim();
+          if (iconUrl) {
+            IconManager.saveIcon(iconUrl);
+            this.showToast('图标设置已保存');
+            
+            const isCustomIcon = IconManager.getIcon() !== IconManager.defaultIcon;
+            document.getElementById('customIconStatus').textContent = isCustomIcon ? '是' : '否';
+          }
+        });
+        
+        // 头像表单提交
+        document.getElementById('avatarForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const avatarUrl = document.getElementById('avatarUrl').value.trim();
+          if (avatarUrl) {
+            AvatarManager.saveAvatar(avatarUrl);
+            this.showToast('头像设置已保存');
+          }
+        });
+        
+        // 链接表单提交
+        document.getElementById('linksForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const links = {
+            bilibiliHome: document.getElementById('bilibiliHomeUrl').value.trim(),
+            bilibiliLive: document.getElementById('bilibiliLiveUrl').value.trim()
+          };
+          LinkManager.saveLinks(links);
+          this.showToast('链接设置已保存');
+        });
+        
+        // 背景表单提交
+        document.getElementById('backgroundForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const backgroundUrl = document.getElementById('backgroundUrl').value.trim();
+          const opacity = parseInt(document.getElementById('backgroundOpacity').value);
+          
+          const currentSettings = BackgroundManager.getBackgroundSettings();
+          
+          if (backgroundUrl) {
+            currentSettings.url = backgroundUrl;
+          }
+          
+          currentSettings.opacity = opacity;
+          
+          BackgroundManager.saveBackgroundSettings(currentSettings);
+          this.showToast('背景设置已保存');
+        });
+        
+        // 添加歌曲表单
+        document.getElementById('addSongForm').addEventListener('submit', (e) => {
+          e.preventDefault();
+          
+          const newSong = {
+            name: document.getElementById('songName').value.trim(),
+            singer: document.getElementById('songSinger').value.trim(),
+            language: document.getElementById('songLanguage').value,
+            genre: document.getElementById('songGenre').value,
+            paid: document.getElementById('songPaid').value,
+            link: document.getElementById('songLink').value.trim() || '',
+            remark: document.getElementById('songRemark').value.trim() || ''
+          };
+          
+          SongManager.addSong(newSong);
+          document.getElementById('addSongForm').reset();
+          this.renderSongList();
+          this.renderAdminSongList();
+          this.showToast('歌曲添加成功');
+        });
+      },
+      
+      initResetButtons() {
+        // 重置图标
+        document.getElementById('resetIcon').addEventListener('click', () => {
+          IconManager.resetIcon();
+          document.getElementById('iconUrl').value = '';
+          this.showToast('图标已恢复默认');
+          
+          const isCustomIcon = IconManager.getIcon() !== IconManager.defaultIcon;
+          document.getElementById('customIconStatus').textContent = isCustomIcon ? '是' : '否';
+        });
+        
+        // 重置头像
+        document.getElementById('resetAvatar').addEventListener('click', () => {
+          AvatarManager.resetAvatar();
+          document.getElementById('avatarUrl').value = '';
+          this.showToast('头像已恢复默认');
+        });
+        
+        // 重置链接
+        document.getElementById('resetLinks').addEventListener('click', () => {
+          LinkManager.resetLinks();
+          this.showToast('链接已恢复默认');
+        });
+        
+        // 重置背景
+        document.getElementById('resetBackground').addEventListener('click', () => {
+          BackgroundManager.resetBackground();
+          document.getElementById('backgroundUrl').value = '';
+          this.showToast('背景已恢复默认');
+        });
+      },
+      
+      initOtherButtons() {
+        // 关闭后台面板
+        document.getElementById('closeBackend').addEventListener('click', () => {
+          document.getElementById('backendModal').classList.add('hidden');
+        });
+        
+        // 点击后台面板外部关闭
+        document.getElementById('backendModal').addEventListener('click', (e) => {
+          if (e.target === document.getElementById('backendModal')) {
+            document.getElementById('backendModal').classList.add('hidden');
+          }
+        });
+        
+        // 导出歌曲
+        document.getElementById('exportSongs').addEventListener('click', () => {
+          const songs = SongManager.getSongs();
+          if (songs.length === 0) {
+            this.showToast('没有可导出的歌曲', 'fa-exclamation-circle');
+            return;
+          }
+          SongManager.exportSongs();
+          this.showToast('歌曲导出成功');
+        });
+        
+        // 清空歌曲列表
+        document.getElementById('clearSongs').addEventListener('click', () => {
+          const songs = SongManager.getSongs();
+          if (songs.length === 0) {
+            this.showToast('歌曲列表已为空', 'fa-exclamation-circle');
+            return;
+          }
+          
+          if (confirm('确定要清空所有歌曲吗？此操作不可恢复。')) {
+            SongManager.clearAllSongs();
+            this.renderSongList();
+            this.renderAdminSongList();
+            this.showToast('歌曲列表已清空');
+          }
+        });
+        
+        // 背景透明度实时预览
+        document.getElementById('backgroundOpacity').addEventListener('input', (e) => {
+          document.getElementById('opacityValue').textContent = e.target.value;
+          document.getElementById('previewBackground').style.opacity = e.target.value / 100;
+          document.getElementById('pageBackground').style.opacity = e.target.value / 100;
+        });
+        
+        // 背景URL实时预览
+        document.getElementById('backgroundUrl').addEventListener('input', (e) => {
+          const url = e.target.value;
+          if (url) {
+            document.getElementById('previewBackground').src = url;
+          }
+        });
+      },
+      
+      initSearchAndFilter() {
+        document.getElementById('searchInput').addEventListener('input', () => {
+          this.filterSongs();
+        });
+        
+        document.getElementById('filterGenre').addEventListener('change', () => {
+          this.filterSongs();
+        });
+        
+        document.getElementById('filterLanguage').addEventListener('change', () => {
+          this.filterSongs();
+        });
+        
+        document.getElementById('filterPaid').addEventListener('change', () => {
+          this.filterSongs();
+        });
+      },
+      
+      init() {
+        // 1. 优先初始化登录系统
+        LoginManager.initAdmin();
+        LoginManager.updateLoginStatus();
+        
+        // 2. 初始化基础配置
+        document.getElementById('navIcon').src = IconManager.getIcon();
+        document.getElementById('previewIcon').src = IconManager.getIcon();
+        
+        document.getElementById('avatar').src = AvatarManager.getAvatar();
+        document.getElementById('previewAvatar').src = AvatarManager.getAvatar();
+        
+        LinkManager.applyLinks(LinkManager.getLinks());
+        BackgroundManager.applyBackground(BackgroundManager.getBackgroundSettings());
+        
+        // 3. 初始化UI组件
+        this.renderSongList();
+        this.initTabs();
+        this.initLoginEvents(); // 新增：初始化登录事件
+        this.initUploadAreas();
+        this.initForms();
+        this.initResetButtons();
+        this.initOtherButtons();
+        this.initSearchAndFilter();
+        
+        // 4. 导航栏滚动效果
+        window.addEventListener('scroll', () => {
+          const nav = document.querySelector('nav');
+          if (window.scrollY > 10) {
+            nav.classList.add('py-2', 'shadow');
+            nav.classList.remove('py-3');
+          } else {
+            nav.classList.add('py-3');
+            nav.classList.remove('py-2', 'shadow');
+          }
+        });
+        
+        // 5. 初始化系统信息中的图标状态
+        const isCustomIcon = IconManager.getIcon() !== IconManager.defaultIcon;
+        document.getElementById('customIconStatus').textContent = isCustomIcon ? '是' : '否';
+      }
+    };
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      UIManager.init();
+    });
+  </script>
+</body>
+</html>
